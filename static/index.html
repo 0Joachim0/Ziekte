@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Afwezigheden</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    body {
+      padding: 30px;
+      background-color: #f8f9fa;
+    }
+    .swal2-popup {
+      font-size: 1rem !important;
+    }
+    th, td {
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2 class="mb-4 text-center">📋 Afwezigheidsbeheer</h2>
+
+    <!-- Nav Tabs -->
+    <ul class="nav nav-tabs mb-4" id="tabs">
+      <li class="nav-item">
+        <a class="nav-link active" data-bs-toggle="tab" href="#lijst">Lopende Ziektes</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#toevoegen">Persoon Toevoegen</a>
+      </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+
+      <!-- Tab 1: Lijst -->
+      <div class="tab-pane fade show active" id="lijst">
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle text-center">
+            <thead class="table-light">
+              <tr>
+                <th>👤 Naam</th>
+                <th>📅 Startdatum</th>
+                <th> ⚠️ AO </th>
+                <th>📆 Dagen ziek</th>
+                <th>💌 Kaartje</th>
+                <th>👨‍⚕️ P&M of Zorgteam</th>
+                <th>🔒 Trakakast</th>
+                <th>🎁 Mandje</th>
+                <th>🗑️ Verwijderen</th>
+              </tr>
+            </thead>
+            <tbody id="listBody">
+              <!-- Hier komen de personen -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 2: Toevoegen -->
+      <div class="tab-pane fade" id="toevoegen">
+          <div class="mx-auto" style="max-width: 750px;">
+
+<form id="addForm" class="mt-4">
+  <div class="row mb-3 align-items-center">
+    <div class="col-md-6 text-end">
+      <label for="naam" class="form-label mb-0">Naam</label>
+    </div>
+    <div class="col-md-6">
+      <input type="text" class="form-control" id="naam" required>
+    </div>
+  </div>
+
+  <div class="row mb-3 align-items-center">
+    <div class="col-md-6 text-end">
+      <label for="startdatum" class="form-label mb-0">Startdatum</label>
+    </div>
+    <div class="col-md-6">
+      <input type="date" class="form-control" id="startdatum" required>
+    </div>
+  </div>
+
+<div class="row mb-3 align-items-center">
+  <div class="col-md-6 text-end">
+    <label for="arbeidsongeval" class="form-check-label mb-0">⚠️ Arbeidsongeval</label>
+  </div>
+  <div class="col-md-6 d-flex justify-content-center align-items-center">
+<input class="form-check-input" type="checkbox" id="arbeidsongeval" style="margin: 0; width: 30px; height: 30px;">
+  </div>
+</div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <button type="submit" class="btn btn-primary w-100 py-2">➕ Toevoegen</button>
+    </div>
+  </div>
+</form>
+      </div>
+        </div>
+
+
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (for tabs) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+const API = "http://localhost:5000/api";
+
+document.getElementById("addForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const naam = document.getElementById("naam").value;
+  const startdatum = document.getElementById("startdatum").value;
+  const arbeidsongeval = document.getElementById("arbeidsongeval").checked ? "ja" : "nee";
+
+  await fetch(`${API}/add`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ naam, startdatum, arbeidsongeval })
+  });
+
+  document.getElementById("addForm").reset();
+  const tabTrigger = new bootstrap.Tab(document.querySelector('a[href="#lijst"]'));
+  tabTrigger.show();
+  loadList();
+});
+
+async function updateStatus(index, veld, huidigeStatus) {
+  const nieuwStatus = huidigeStatus === "ja" ? "nee" : "ja";
+  await fetch(`${API}/update/${index}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ [veld]: nieuwStatus })
+  });
+  loadList();
+}
+
+async function loadList() {
+  const res = await fetch(`${API}/list`);
+  const data = await res.json();
+  const tbody = document.getElementById("listBody");
+  tbody.innerHTML = "";
+
+  const todoMap = {
+    kaartje: [],
+    zorgteam: [],
+    trakakast: [],
+    mandje: []
+  };
+
+  data.forEach((persoon, index) => {
+    const dagen = parseInt(persoon["dagen afwezig"]);
+    const naam = persoon.Naam;
+
+    function statusCell(veld, waarde, index) {
+      const icon = waarde === "ja" ? "✅" : "❌";
+      return `<span class="status-toggle" 
+                  style="cursor:pointer;"
+                  data-index="${index}"
+                  data-veld="${veld}" 
+                  data-status="${waarde}">${icon}</span>`;
+    }
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${naam}</td>
+      <td>${persoon["Startdatum"]}</td>
+      <td>${persoon["Arbeidsongeval"]}</td>
+      <td>${dagen}</td>
+      <td>${statusCell("Kaartje verstuurd", persoon["Kaartje verstuurd"], index)}</td>
+      <td>${statusCell("Zorgteam verwittigd", persoon["Zorgteam verwittigd"], index)}</td>
+      <td>${statusCell("Trakakast afgesloten", persoon["Trakakast afgesloten"], index)}</td>
+      <td>${statusCell("Beterschaps mandje", persoon["Beterschaps mandje"], index)}</td>
+      <td><button class="btn btn-danger btn-sm delete-btn" data-index="${index}">🗑️</button></td>
+    `;
+    tbody.appendChild(row);
+
+    // Verzamel per soort actie de namen
+    if (dagen >= 21 && persoon["Kaartje verstuurd"] !== "ja") {
+      todoMap.kaartje.push(naam);
+    }
+    if (dagen >= 30 && persoon["Zorgteam verwittigd"] !== "ja") {
+      todoMap.zorgteam.push(naam);
+    }
+    if (dagen >= 45 && persoon["Trakakast afgesloten"] !== "ja") {
+      todoMap.trakakast.push(naam);
+    }
+    if (dagen >= 60 && persoon["Beterschaps mandje"] !== "ja") {
+      todoMap.mandje.push(naam);
+    }
+  });
+
+  // Status klikbaar maken
+  document.querySelectorAll(".status-toggle").forEach(el => {
+    el.addEventListener("click", () => {
+      const index = el.getAttribute("data-index");
+      const veld = el.getAttribute("data-veld");
+      const huidigeStatus = el.getAttribute("data-status");
+      updateStatus(index, veld, huidigeStatus);
+    });
+  });
+
+  // Verwijderen
+  document.querySelectorAll(".delete-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const index = btn.getAttribute("data-index");
+      const persoon = data[index];
+
+      const dagen = parseInt(persoon["dagen afwezig"]);
+      const alerts = [];
+
+      if (dagen >= 21 && persoon["Kaartje verstuurd"] !== "ja") {
+        alerts.push("💌 Kaartje nog niet verstuurd");
+      }
+      if (dagen >= 30 && persoon["Zorgteam verwittigd"] !== "ja") {
+        alerts.push("👨‍⚕️ Zorgteam nog niet verwittigd");
+      }
+      if (dagen >= 45 && persoon["Trakakast afgesloten"] !== "ja") {
+        alerts.push("🔒 Trakakast niet afgesloten");
+      }
+      if (dagen >= 60 && persoon["Beterschaps mandje"] !== "ja") {
+        alerts.push("🎁 Mandje nog niet geregeld");
+      }
+
+      let warningText = alerts.length > 0
+        ? `<p><strong>Let op! Deze persoon heeft nog niet afgeronde acties:</strong></p><ul>${alerts.map(a => `<li>${a}</li>`).join("")}</ul><p>Weet je zeker dat je wilt verwijderen?</p>`
+        : "Weet je zeker dat je deze persoon wilt verwijderen?";
+
+Swal.fire({
+  title: 'Persoon verwijderen?',
+  icon: 'warning',
+  html: warningText,
+  showCancelButton: true,
+  confirmButtonText: dagen >= 30 ? "Ja, verder" : "Ja, verwijderen",
+  cancelButtonText: 'Annuleren'
+}).then((result) => {
+  if (result.isConfirmed) {
+    if (dagen >= 30) {
+      Swal.fire({
+        title: '🔌 Trakakast opnieuw aangesloten?',
+        text: 'Is de Trakakast opnieuw aangesloten voordat je deze persoon verwijdert?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Ja, verder',
+        cancelButtonText: 'Annuleren'
+      }).then((secondResult) => {
+        if (secondResult.isConfirmed) {
+          // Tweede vraag toevoegen
+          Swal.fire({
+            title: '📅 Maak afspraak met Liantis',
+            text: 'Maak een afspraak met Liantis voor werkhervattingsonderzoek.',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'Afspraak gemaakt, verwijderen',
+            cancelButtonText: 'Annuleren'
+          }).then((thirdResult) => {
+            if (thirdResult.isConfirmed) {
+              fetch(`${API}/update/${index}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ verwijderen: true })
+              }).then(() => {
+                Swal.fire('Verwijderd!', '', 'success');
+                loadList();
+              });
+            }
+          });
+        }
+      });
+    } else {
+      // Direct verwijderen zonder extra vragen
+      fetch(`${API}/update/${index}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verwijderen: true })
+      }).then(() => {
+        Swal.fire('Verwijderd!', '', 'success');
+        loadList();
+      });
+    }
+  }
+});
+
+    });
+  });
+
+  // Gegroepeerde waarschuwingen
+  let groupedAlerts = "";
+
+  if (todoMap.kaartje.length > 0) {
+    groupedAlerts += `<p>💌 <strong>Kaartje nog niet verstuurd voor:</strong> ${todoMap.kaartje.join(", ")}</p>`;
+  }
+  if (todoMap.zorgteam.length > 0) {
+    groupedAlerts += `<p>👨‍⚕️ <strong>Zorgteam nog niet verwittigd voor:</strong> ${todoMap.zorgteam.join(", ")}</p>`;
+  }
+  if (todoMap.trakakast.length > 0) {
+    groupedAlerts += `<p>🔒 <strong>Trakakast niet afgesloten voor:</strong> ${todoMap.trakakast.join(", ")}</p>`;
+  }
+  if (todoMap.mandje.length > 0) {
+    groupedAlerts += `<p>🎁 <strong>Mandje nog niet geregeld voor:</strong> ${todoMap.mandje.join(", ")}</p>`;
+  }
+
+  if (groupedAlerts) {
+    Swal.fire({
+      title: '⚠️ Te ondernemen acties',
+      icon: 'warning',
+      html: groupedAlerts,
+      confirmButtonText: 'Oké'
+    });
+  }
+}
+
+loadList();
+</script>
+
+</body>
+</html>
