@@ -1,30 +1,63 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM 1. Install Python silently if not already installed
+REM 1. Check if Python is installed
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Installing Python...
-    powershell -Command "Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.13.5/python-3.13.5-amd64.exe -OutFile python_installer.exe"
-    start /wait python_installer.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0
-    del python_installer.exe
+    echo Python is not installed or not in PATH.
+    echo Please install Python manually from https://www.python.org/ and ensure it is added to PATH.
+    pause
+    exit /b
 )
 
-REM 2. Create script folder
+REM 2. Check if Git is installed
+git --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Git is not installed or not in PATH.
+    echo Please install Git from https://git-scm.com/download/win and ensure it is added to PATH.
+    pause
+    exit /b
+)
+
+REM 3. Set script/repo folder
 set "SCRIPT_FOLDER=%USERPROFILE%\Ziekte"
-if not exist "!SCRIPT_FOLDER!" mkdir "!SCRIPT_FOLDER!"
 
-REM 3. Download Python script
-powershell -Command "Invoke-WebRequest -Uri https://pastebin.com/raw/your_raw_script_url -OutFile '!SCRIPT_FOLDER!\verzuim_tracker.py'"
+REM 4. Clone or pull latest from GitHub repo
+if exist "!SCRIPT_FOLDER!\.git" (
+    echo Updating existing repository...
+    pushd "!SCRIPT_FOLDER!"
+    git pull
+    popd
+) else (
+    echo Cloning repository...
+    git clone https://github.com/0Joachim0/Ziekte.git "!SCRIPT_FOLDER!"
+)
 
-REM 4. Create startup shortcut
+REM 5. Create virtual environment
+set "VENV_PATH=!SCRIPT_FOLDER!\venv"
+if not exist "!VENV_PATH!\Scripts\python.exe" (
+    echo Creating virtual environment...
+    python -m venv "!VENV_PATH!"
+)
+
+REM 6. Install dependencies if requirements.txt exists
+if exist "!SCRIPT_FOLDER!\requirements.txt" (
+    echo Installing dependencies...
+    call "!VENV_PATH!\Scripts\activate.bat"
+    pip install --upgrade pip
+    pip install -r "!SCRIPT_FOLDER!\requirements.txt"
+)
+
+REM 7. Create startup batch file
 set "STARTUP_FOLDER=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-set "BATCH_FILE=%STARTUP_FOLDER%\run_verzuim.bat"
+set "BATCH_FILE=%STARTUP_FOLDER%\run.bat"
 
 (
     echo @echo off
-    echo python "%SCRIPT_FOLDER%\verzuim_tracker.py"
+    echo call "%SCRIPT_FOLDER%\venv\Scripts\activate.bat"
+    echo python "%SCRIPT_FOLDER%\main.py"
 ) > "!BATCH_FILE!"
 
-echo Setup complete. The tracker will now run at every startup.
+echo.
+echo ✅ Setup complete. The tracker will run at startup.
 pause
